@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
 using Netimobiledevice;
 using Netimobiledevice.Backup;
+using Netimobiledevice.Heartbeat;
 using Netimobiledevice.Lockdown;
 using Netimobiledevice.Lockdown.Pairing;
 using Netimobiledevice.NotificationProxy;
@@ -31,8 +32,9 @@ public class Program
         };
         Console.WriteLine("Press Ctrl+C to cancel the operation.");
 
-        List<UsbmuxdDevice> devices = Usbmux.GetDeviceList();
+        Usbmux.Subscribe(SubscriptionCallback, SubscriptionErrorCallback, logger);
 
+        List<UsbmuxdDevice> devices = Usbmux.GetDeviceList();
         if (devices.Count == 0) {
             logger.LogError("No device is connected to the system.");
             return;
@@ -43,7 +45,7 @@ public class Program
             Console.WriteLine($"Device found: {device.DeviceId} - {device.Serial}");
         }
 
-        using (LockdownClient lockdown = MobileDevice.CreateUsingUsbmux(logger: logger)) {
+        using (LockdownClient lockdown = await MobileDevice.CreateUsingUsbmux(logger: logger)) {
             Progress<PairingState> progress = new();
             progress.ProgressChanged += Progress_ProgressChanged;
             if (!lockdown.IsPaired) {
@@ -51,39 +53,43 @@ public class Program
             }
         }
 
-        using (LockdownClient lockdown = MobileDevice.CreateUsingUsbmux(logger: logger)) {
-            using (NotificationProxyService np = new NotificationProxyService(lockdown)) {
-                np.ReceivedNotification += NotificationProxy_ReceivedNotification;
-                await np.ObserveNotificationAsync(ReceivableNotification.ActivationState).ConfigureAwait(false);
-                await np.ObserveNotificationAsync(ReceivableNotification.AddressBookPreferenceChanged).ConfigureAwait(false);
-                await np.ObserveNotificationAsync(ReceivableNotification.AppInstalled).ConfigureAwait(false);
-                await np.ObserveNotificationAsync(ReceivableNotification.AppUninstalled).ConfigureAwait(false);
-                await np.ObserveNotificationAsync(ReceivableNotification.AttemptActivation).ConfigureAwait(false);
-                await np.ObserveNotificationAsync(ReceivableNotification.BrickState).ConfigureAwait(false);
-                await np.ObserveNotificationAsync(ReceivableNotification.DeveloperImageMounted).ConfigureAwait(false);
-                await np.ObserveNotificationAsync(ReceivableNotification.DeviceNameChanged).ConfigureAwait(false);
-                await np.ObserveNotificationAsync(ReceivableNotification.DiskUsageChanged).ConfigureAwait(false);
-                await np.ObserveNotificationAsync(ReceivableNotification.DsDomainChanged).ConfigureAwait(false);
-                await np.ObserveNotificationAsync(ReceivableNotification.HostAttached).ConfigureAwait(false);
-                await np.ObserveNotificationAsync(ReceivableNotification.HostDetached).ConfigureAwait(false);
-                await np.ObserveNotificationAsync(ReceivableNotification.ItdbprepDidEnd).ConfigureAwait(false);
-                await np.ObserveNotificationAsync(ReceivableNotification.LanguageChanged).ConfigureAwait(false);
-                await np.ObserveNotificationAsync(ReceivableNotification.LocalAuthenticationUiDismissed).ConfigureAwait(false);
-                await np.ObserveNotificationAsync(ReceivableNotification.LocalAuthenticationUiPresented).ConfigureAwait(false);
-                await np.ObserveNotificationAsync(ReceivableNotification.PhoneNumberChanged).ConfigureAwait(false);
-                await np.ObserveNotificationAsync(ReceivableNotification.RegistrationFailed).ConfigureAwait(false);
-                await np.ObserveNotificationAsync(ReceivableNotification.RequestPair).ConfigureAwait(false);
-                await np.ObserveNotificationAsync(ReceivableNotification.SyncCancelRequest).ConfigureAwait(false);
-                await np.ObserveNotificationAsync(ReceivableNotification.SyncResumeRequst).ConfigureAwait(false);
-                await np.ObserveNotificationAsync(ReceivableNotification.SyncSuspendRequst).ConfigureAwait(false);
-                await np.ObserveNotificationAsync(ReceivableNotification.TimezoneChanged).ConfigureAwait(false);
-                await np.ObserveNotificationAsync(ReceivableNotification.TrustedHostAttached).ConfigureAwait(false);
+        using (LockdownClient lockdown = await MobileDevice.CreateUsingUsbmux(logger: logger)) {
+            using (HeartbeatService hb = new HeartbeatService(lockdown, logger)) {
+                hb.Start();
 
-                await Task.Delay(100000).ConfigureAwait(false);
+                using (NotificationProxyService np = new NotificationProxyService(lockdown)) {
+                    np.ReceivedNotification += NotificationProxy_ReceivedNotification;
+                    await np.ObserveNotificationAsync(ReceivableNotification.ActivationState).ConfigureAwait(false);
+                    await np.ObserveNotificationAsync(ReceivableNotification.AddressBookPreferenceChanged).ConfigureAwait(false);
+                    await np.ObserveNotificationAsync(ReceivableNotification.AppInstalled).ConfigureAwait(false);
+                    await np.ObserveNotificationAsync(ReceivableNotification.AppUninstalled).ConfigureAwait(false);
+                    await np.ObserveNotificationAsync(ReceivableNotification.AttemptActivation).ConfigureAwait(false);
+                    await np.ObserveNotificationAsync(ReceivableNotification.BrickState).ConfigureAwait(false);
+                    await np.ObserveNotificationAsync(ReceivableNotification.DeveloperImageMounted).ConfigureAwait(false);
+                    await np.ObserveNotificationAsync(ReceivableNotification.DeviceNameChanged).ConfigureAwait(false);
+                    await np.ObserveNotificationAsync(ReceivableNotification.DiskUsageChanged).ConfigureAwait(false);
+                    await np.ObserveNotificationAsync(ReceivableNotification.DsDomainChanged).ConfigureAwait(false);
+                    await np.ObserveNotificationAsync(ReceivableNotification.HostAttached).ConfigureAwait(false);
+                    await np.ObserveNotificationAsync(ReceivableNotification.HostDetached).ConfigureAwait(false);
+                    await np.ObserveNotificationAsync(ReceivableNotification.ItdbprepDidEnd).ConfigureAwait(false);
+                    await np.ObserveNotificationAsync(ReceivableNotification.LanguageChanged).ConfigureAwait(false);
+                    await np.ObserveNotificationAsync(ReceivableNotification.LocalAuthenticationUiDismissed).ConfigureAwait(false);
+                    await np.ObserveNotificationAsync(ReceivableNotification.LocalAuthenticationUiPresented).ConfigureAwait(false);
+                    await np.ObserveNotificationAsync(ReceivableNotification.PhoneNumberChanged).ConfigureAwait(false);
+                    await np.ObserveNotificationAsync(ReceivableNotification.RegistrationFailed).ConfigureAwait(false);
+                    await np.ObserveNotificationAsync(ReceivableNotification.RequestPair).ConfigureAwait(false);
+                    await np.ObserveNotificationAsync(ReceivableNotification.SyncCancelRequest).ConfigureAwait(false);
+                    await np.ObserveNotificationAsync(ReceivableNotification.SyncResumeRequst).ConfigureAwait(false);
+                    await np.ObserveNotificationAsync(ReceivableNotification.SyncSuspendRequst).ConfigureAwait(false);
+                    await np.ObserveNotificationAsync(ReceivableNotification.TimezoneChanged).ConfigureAwait(false);
+                    await np.ObserveNotificationAsync(ReceivableNotification.TrustedHostAttached).ConfigureAwait(false);
+
+                    await Task.Delay(100000).ConfigureAwait(false);
+                }
             }
         }
 
-        using (UsbmuxLockdownClient lockdown = MobileDevice.CreateUsingUsbmux(logger: logger)) {
+        using (UsbmuxLockdownClient lockdown = await MobileDevice.CreateUsingUsbmux(logger: logger)) {
             using (Mobilebackup2Service mb2 = new Mobilebackup2Service(lockdown, logger: logger)) {
                 mb2.BeforeReceivingFile += BackupJob_BeforeReceivingFile;
                 mb2.Completed += BackupJob_Completed;
@@ -98,6 +104,10 @@ public class Program
 
                 await mb2.Backup(false, false, true, "backups", tokenSource.Token);
             }
+        }
+
+        while (true) {
+            await Task.Delay(1000);
         }
     }
 
