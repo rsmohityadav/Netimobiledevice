@@ -421,10 +421,12 @@ namespace Netimobiledevice.Backup
                                 };
                                 dl.SendProcessMessage(message);
 
-                                // Wait for 3 seconds to see if the device passcode is requested and then keep waiting till the passcode has been entered
-                                do {
+                                // Wait for 3 seconds to see if the device passcode is requested
+                                await Task.Delay(3000, _internalCts.Token).ConfigureAwait(false);
+                                while (_passcodeRequired) {
+                                    // Keep waiting till the passcode has been entered
                                     await Task.Delay(3000, _internalCts.Token).ConfigureAwait(false);
-                                } while (_passcodeRequired);
+                                }
 
                                 return await dl.DlLoop(_internalCts.Token).ConfigureAwait(false);
                             }
